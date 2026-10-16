@@ -1,3 +1,5 @@
+"""Record match results and display a league scoreboard."""
+
 import os
 import pathlib
 import re
@@ -8,72 +10,79 @@ import subprocess  # nosec B404
 import tempfile
 
 POINTS = {"win" : 3, "draw": 1, "loss": 0}
-teams = {}
-matches = []
+TEAMS = {}
+MATCHES = []
 
 
-def addTeam(teamName, players=[]):
-    teams[teamName] = {"played": 0, "won": 0, "drawn": 0, "lost": 0,
-                       "gf": 0, "ga": 0, "players": players}
+def add_team(team_name, players=None):
+    """Register a team with its own player list."""
+    TEAMS[team_name] = {"played": 0, "won": 0, "drawn": 0, "lost": 0,
+                        "gf": 0, "ga": 0,
+                        "players": [] if players is None else list(players)}
 
 
-def matchResult(homeGoals, awayGoals):
-    if homeGoals > awayGoals:
+def match_result(home_goals, away_goals):
+    """Return the winning side, or draw for equal scores."""
+    if home_goals > away_goals:
         return "home"
-    elif homeGoals < awayGoals:
+    if home_goals < away_goals:
         return "away"
-    else:
-        return "draw"
+    return "draw"
 
 
-def recordMatch(home, away, homeGoals, awayGoals):
-    result = matchResult(homeGoals, awayGoals)
-    sides = ((home, homeGoals, awayGoals), (away, awayGoals, homeGoals))
+def record_match(home, away, home_goals, away_goals):
+    """Update both teams' statistics and save the match result."""
+    result = match_result(home_goals, away_goals)
+    sides = ((home, home_goals, away_goals), (away, away_goals, home_goals))
     for team, scored, conceded in sides:
-        teams[team]["played"] += 1
-        teams[team]["gf"] += scored
-        teams[team]["ga"] += conceded
+        TEAMS[team]["played"] += 1
+        TEAMS[team]["gf"] += scored
+        TEAMS[team]["ga"] += conceded
     if result == "draw":
-        teams[home]["drawn"] += 1
-        teams[away]["drawn"] += 1
+        TEAMS[home]["drawn"] += 1
+        TEAMS[away]["drawn"] += 1
     else:
         winner, loser = (home, away) if result == "home" else (away, home)
-        teams[winner]["won"] += 1
-        teams[loser]["lost"] += 1
-    matches.append((home, away, homeGoals, awayGoals))
+        TEAMS[winner]["won"] += 1
+        TEAMS[loser]["lost"] += 1
+    MATCHES.append((home, away, home_goals, away_goals))
 
 
-def points(teamName):
-    stats = teams[teamName]
+def points(team_name):
+    """Calculate league points from wins and draws."""
+    stats = TEAMS[team_name]
     return stats["won"] * POINTS["win"] + stats["drawn"] * POINTS["draw"]
 
 
-def goalDifference(teamName):
-    return teams[teamName]["gf"] - teams[teamName]["ga"]
+def goal_difference(team_name):
+    """Calculate goals scored minus goals conceded."""
+    return TEAMS[team_name]["gf"] - TEAMS[team_name]["ga"]
 
 
-def leagueTable():
-    return sorted(teams, key=lambda t: (points(t), goalDifference(t)),
+def league_table():
+    """Rank teams by points and then goal difference."""
+    return sorted(TEAMS, key=lambda t: (points(t), goal_difference(t)),
                   reverse=True)
 
 
-def isTopTwo(teamName):
-    table = leagueTable()
-    return teamName == table[0] or teamName == table[1]
+def is_top_two(team_name):
+    """Check the top two safely, even with fewer than two teams."""
+    return team_name in league_table()[:2]
 
-def tossCoin():
+def toss_coin():
+    """Choose either coin side using the system random source."""
     return secrets.choice(["Heads", "Tails"])
 
 
-def tableFilePath():
-    # Helper kept for the lab: not called by the demo
+def table_file_path():
+    """Create a temporary JSON file; the caller must remove it later."""
     descriptor, path = tempfile.mkstemp(suffix=".json")
     os.close(descriptor)
     return path
 
 
-def publishTable(server):
-    # Helper kept for the lab: not called by the demo
+def publish_table(server):
+    """Copy table.json to /var/www/ using scp and a validated host."""
     pattern = (
         r"(?:[A-Za-z0-9_][A-Za-z0-9_.-]*@)?"
         r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?"
@@ -94,21 +103,23 @@ def publishTable(server):
 
 
 def main():
+    """Run the sample tournament and print its standings."""
     for name in ["Royal Strikers", "City Rovers", "Lake United"]:
-        addTeam(name)
-    addTeam("Hill Warriors")
-    print("Toss:", tossCoin())
-    recordMatch("Royal Strikers", "City Rovers", 2,1)
-    recordMatch("Lake United", "Hill Warriors", 0, 0)
-    recordMatch("City Rovers", "Lake United", 3, 2)
-    recordMatch("Hill Warriors", "Royal Strikers", 1, 1)
+        add_team(name)
+    add_team("Hill Warriors")
+    print("Toss:", toss_coin())
+    record_match("Royal Strikers", "City Rovers", 2,1)
+    record_match("Lake United", "Hill Warriors", 0, 0)
+    record_match("City Rovers", "Lake United", 3, 2)
+    record_match("Hill Warriors", "Royal Strikers", 1, 1)
     print("Pos Team Played Won Drawn Lost Pts")
-    for pos, name in enumerate(leagueTable(), 1):
-        stats = teams[name]
+    for pos, name in enumerate(league_table(), 1):
+        stats = TEAMS[name]
         print(pos, name, stats["played"], stats["won"], stats["drawn"],
               stats["lost"], points(name)) # one row per team
-    print("Is City Rovers in the top two?", isTopTwo("City Rovers"))
-    print("Matches played:", len(matches))
+    print("Is City Rovers in the top two?", is_top_two("City Rovers"))
+    print("Matches played:", len(MATCHES))
 
 
-main()
+if __name__ == "__main__":
+    main()
