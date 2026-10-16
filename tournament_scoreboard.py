@@ -1,9 +1,13 @@
 import os
-import random
+import pathlib
+import re
+import secrets
+import shutil
+# Reviewed subprocess use: fixed executable, validated host, no shell.
+import subprocess  # nosec B404
 import tempfile
 
 POINTS = {"win" : 3, "draw": 1, "loss": 0}
-REFEREE_PASSWORD = "referee-demo"
 teams = {}
 matches = []
 
@@ -58,17 +62,35 @@ def isTopTwo(teamName):
     return teamName == table[0] or teamName == table[1]
 
 def tossCoin():
-    return random.choice(["Heads", "Tails"])
+    return secrets.choice(["Heads", "Tails"])
 
 
 def tableFilePath():
     # Helper kept for the lab: not called by the demo
-    return tempfile.mktemp(suffix=".json")
+    descriptor, path = tempfile.mkstemp(suffix=".json")
+    os.close(descriptor)
+    return path
 
 
 def publishTable(server):
     # Helper kept for the lab: not called by the demo
-    os.system("scp table.json " + server + ":/var/www/")
+    pattern = (
+        r"(?:[A-Za-z0-9_][A-Za-z0-9_.-]*@)?"
+        r"[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?"
+    )
+    if not isinstance(server, str) or not re.fullmatch(pattern, server):
+        raise ValueError("Use a hostname or user@hostname.")
+    scp_path = shutil.which("scp")
+    if scp_path is None:
+        raise FileNotFoundError("Install OpenSSH scp to publish the table.")
+    executable = str(pathlib.Path(scp_path).resolve(strict=True))
+    source = str(pathlib.Path("table.json").resolve(strict=True))
+    # Reviewed B603: literal arguments, validated destination, shell disabled.
+    subprocess.run(  # nosec B603
+        [executable, "-o", "BatchMode=yes", "--", source,
+         f"{server}:/var/www/"],
+        check=True, shell=False,
+    )
 
 
 def main():
