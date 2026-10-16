@@ -9,7 +9,7 @@ import shutil
 import subprocess  # nosec B404
 import tempfile
 
-POINTS = {"win" : 3, "draw": 1, "loss": 0}
+POINTS = {"win": 3, "draw": 1, "loss": 0}
 TEAMS = {}
 MATCHES = []
 
@@ -69,6 +69,7 @@ def is_top_two(team_name):
     """Check the top two safely, even with fewer than two teams."""
     return team_name in league_table()[:2]
 
+
 def toss_coin():
     """Choose either coin side using the system random source."""
     return secrets.choice(["Heads", "Tails"])
@@ -108,7 +109,7 @@ def main():
         add_team(name)
     add_team("Hill Warriors")
     print("Toss:", toss_coin())
-    record_match("Royal Strikers", "City Rovers", 2,1)
+    record_match("Royal Strikers", "City Rovers", 2, 1)
     record_match("Lake United", "Hill Warriors", 0, 0)
     record_match("City Rovers", "Lake United", 3, 2)
     record_match("Hill Warriors", "Royal Strikers", 1, 1)
@@ -116,7 +117,7 @@ def main():
     for pos, name in enumerate(league_table(), 1):
         stats = TEAMS[name]
         print(pos, name, stats["played"], stats["won"], stats["drawn"],
-              stats["lost"], points(name)) # one row per team
+              stats["lost"], points(name))  # one row per team
     print("Is City Rovers in the top two?", is_top_two("City Rovers"))
     print("Matches played:", len(MATCHES))
 
